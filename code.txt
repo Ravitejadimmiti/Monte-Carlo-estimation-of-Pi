@@ -1,0 +1,123 @@
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+
+#define NR_PTS 10000000
+#define NR_THREADS 5
+#define NR_PTRS_PER_THREAD NR_PTS/NR_THREADS
+
+/*Error handling for pthread_create and pthread_join*/
+#define handle_error_en(en, msg) \
+        do { errno = en; 
+	     perror(msg); 
+	     exit(EXIT_FAILURE);
+ } while (0)
+
+long circleCount = 0;	
+pthread_t *threads;		
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; 
+
+
+void *monteCarloPi(void *thread_ID) {
+
+	long i;							
+	int a = (int) thread_ID;		
+	long incircle_thread = 0; 		
+	unsigned int rand_state = rand(); 
+	
+	/* Create NR_PTRS_PER_THREAD # of points */
+	for (i = 0; i < NR_PTRS_PER_THREAD; i++) {
+		
+		double x = rand_r(&rand_state) / ((double)RAND_MAX + 1) * 2.0 - 1.0;
+		double y = rand_r(&rand_state) / ((double)RAND_MAX + 1) * 2.0 - 1.0;
+		
+		/* If current point is within the circle */
+		if (x * x + y * y < 1) {
+		
+			/* Increase # incircle count */
+			incircle_thread++;
+			
+			}
+
+		}
+
+	float Pi = (4. * (double)incircle_thread) / 
+				((double)NR_PTRS_PER_THREAD * 1);
+
+	
+	printf("Thread [%d] Reports Pi to be [%f]\n" ,a,Pi);
+	
+	
+
+		pthread_mutex_lock(&mutex);
+
+		circleCount += incircle_thread;
+
+		pthread_mutex_unlock(&mutex);
+
+return NULL;
+
+}
+
+
+void createThreads(){
+	
+	int i, s;
+
+	threads = malloc(NR_THREADS * sizeof(pthread_t)); 
+
+	pthread_attr_t attr; /* Pthread attribute init */
+		
+	pthread_attr_init(&attr); /* Pthread attribute init */
+	
+	printf("\n----------------------------------------\n*Creating [%d] Threads\n\n", NR_THREADS);
+	/* Create 1 thread for each NR_THREADS */
+	for (i = 0; i < NR_THREADS; i++) {
+		
+		s = pthread_create(&threads[i], &attr, monteCarloPi,  (void *) i);
+	 	 /*if we recieve anything other than 0 we have a create error*/
+		 if (s != 0){
+		 	/*handle error*/
+			handle_error_en(s, "pthread_create");
+		 
+		 }
+	}
+
+}
+
+void joinThreads(){
+
+	int i,s; /* Declare Count and Error # Variable
+	for (i = 0; i < NR_THREADS; i++) {
+		
+		s = pthread_join(threads[i], NULL);
+		 if (s != 0){
+			handle_error_en(s, "pthread_join");
+		 
+		 }
+
+	}
+
+	pthread_mutex_destroy(&mutex);
+	
+	printf("\n*[%d] Threads Rejoined\n\n", NR_THREADS);
+	
+	free(threads);
+}
+
+int main() {
+
+	float Pi; 
+
+	createThreads(); 
+
+	joinThreads(); 
+	
+	Pi = (4. * (double)circleCount) / ((double)NR_PTRS_PER_THREAD * NR_THREADS);
+	
+	printf("Final Estimation of Pi: %f\n\n----------------------------------------\n", Pi);
+	
+return 0;
+
+}
